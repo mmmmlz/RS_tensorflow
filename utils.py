@@ -45,8 +45,10 @@ def din_fcn_attention(query, facts, attention_size, mask, stag='null', mode='SUM
         # (T,B,D) => (B,T,D)
         facts = tf.array_ops.transpose(facts, [1, 0, 2])
 
-
+    #使用 tf.ones_like(mask) 构建一个和mask维度一样，元素都是 1 的张量
+    # 使用 tf.equal 把mask从 int 类型转成 bool 类型。tf.equal作用是判断两个输入是否相等，相等是True，不等就是False；
     mask = tf.equal(mask,tf.ones_like(mask))
+
 
     facts_size = facts.get_shape().as_list()[-1] # Hidden size for rnn layer
     query = tf.layers.dense(query,facts_size,activation=None,name='f1'+stag)

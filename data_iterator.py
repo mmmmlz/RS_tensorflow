@@ -32,7 +32,7 @@ class DataIterator:
                  max_batch_size = 20,
                  minlen = None):
         self.source = fopen(source,'r')
-
+        self.meta_id_map={}
         self.source_dicts = []
         for source_dict in [uid_voc,mid_voc,cat_voc]:
             self.source_dicts.append(load_dict(source_dict))
@@ -44,7 +44,6 @@ class DataIterator:
             if arr[0] not in meta_map:
                 meta_map[arr[0]] = arr[1] # meta对应的类别map
 
-        self.meta_id_map = {}
         for key in meta_map:
             val = meta_map[key]
             if key in self.source_dicts[1]:
@@ -66,6 +65,7 @@ class DataIterator:
             if arr[1] in self.source_dicts[1]:
                 tmp_idx = self.source_dicts[1][arr[1]]
             self.mid_list_for_random.append(tmp_idx)
+     #   self.meta_id_map = {}
 
         self.batch_size = batch_size
         self.maxlen = maxlen

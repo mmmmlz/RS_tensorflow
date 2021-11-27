@@ -25,7 +25,7 @@ class Model(object):
             self.use_negsampling = use_negsampling
             if use_negsampling:
                 self.noclk_mid_batch_ph = tf.placeholder(tf.int32, [None, None, None], name='noclk_mid_batch_ph') # 负采样的数据
-                self.noclk_cat_batch_ph = tf.placeholder(tf.int32, [None, None, None], name='noclk_cat_batch_ph') #
+                self.noclk_cat_batch_ph = tf.placeholder(tf.int32, [None, None, None], name='noclk_cat_batch_ph') #负采样的数据的种类
 
         with tf.name_scope("Embedding_layer"):
             self.uid_embeddings_var = tf.get_variable("uid_embedding_var",[n_uid,EMBEDDING_DIM])  # 构建用户embedding

@@ -50,7 +50,7 @@ def prepare_data(input,target,maxlen = None,return_neg=False):
         if len(lengths_x) < 1:
             return None, None, None, None
 
-    # 进一步压缩空间，根据
+    # 进一步压缩空间，将列表数据转化为numpy
     n_samples = len(seqs_mid)
     max_len_x = np.max(lengths_x)
     neg_samples = len(noclk_seqs_mid[0][0])
@@ -60,7 +60,7 @@ def prepare_data(input,target,maxlen = None,return_neg=False):
     noclk_mid_his = np.zeros((n_samples,max_len_x,neg_samples)).astype("int64")
     noclk_cat_his =  np.zeros((n_samples,max_len_x,neg_samples)).astype("int64")
     mid_mask = np.zeros((n_samples,max_len_x)).astype('float32')
-
+    # 生成mask
     for idx, [s_x, s_y, no_sx, no_sy] in enumerate(zip(seqs_mid, seqs_cat, noclk_seqs_mid, noclk_seqs_cat)):
         mid_mask[idx, :lengths_x[idx]] = 1.
         mid_his[idx, :lengths_x[idx]] = s_x

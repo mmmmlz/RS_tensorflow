@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.python.keras.layers import Layer, Dense, Dropout
-import numpy as np
+
 from tensorflow.keras.layers import Layer
 from tensorflow.python.keras.regularizers import l2
 from tensorflow.python.keras.initializers import RandomNormal
@@ -17,13 +17,11 @@ class Embedding_layer(Layer):
         super(Embedding_layer, self).__init__()
         self.fd = fd  # 特征总数
         self.embedding_size = embedding_size
-        print("1111",fd)
 
         self.sess_feature = sess_feature
         self.embedding_dict = {}
-        #print(self.name)
     def build(self,input_shape):
-        #super(Embedding_layer, self).build(input_shape)
+        super(Embedding_layer, self).build(input_shape)
         for i,feed in enumerate(self.fd):
             emd = Embedding(feed.vocabulary_size, self.embedding_size,name='sparse_emb_' +str(i) + '-' + feed.name,
                              embeddings_initializer=RandomNormal(mean=0.0, stddev=0.0001, seed=1024),
@@ -92,7 +90,6 @@ class Embedding_layer(Layer):
         print(len(embedding_vec_list))
         return embedding_vec_list
 
-
 class BiasEncoding(Layer):
     def __init__(self, sess_max_count, seed=1024, **kwargs):
         self.sess_max_count = sess_max_count
@@ -123,42 +120,15 @@ class BiasEncoding(Layer):
         super(BiasEncoding, self).build(input_shape)
 
     def call(self, inputs, mask=None):
-        """
-        :param concated_embeds_value: None * field_size * embedding_size
-        :return: None*1
-        """
+
         transformer_out = []
         for i in range(self.sess_max_count):
             transformer_out.append(
                 #[B,10,8] + [1,1,8]+[1,10,1]+[1,1] 由广播机制可以相加
                 inputs[i] + self.item_bias_embedding + self.seq_bias_embedding + self.sess_bias_embedding[i])
-
         return transformer_out
 
-
 class Muti_Attention(Layer):
-    """  Simplified version of Transformer  proposed in 《Attention is all you need》
-
-      Input shape
-        - a list of two 3D tensor with shape ``(batch_size, timesteps, input_dim)`` if supports_masking=True.
-        - a list of two 4 tensors, first two tensors with shape ``(batch_size, timesteps, input_dim)``,last two tensors with shape ``(batch_size, 1)`` if supports_masking=False.
-      Output shape
-        - 3D tensor with shape: ``(batch_size, 1, input_dim)``.
-      Arguments
-            - **att_embedding_size**: int.The embedding size in multi-head self-attention network.
-            - **head_num**: int.The head number in multi-head  self-attention network.
-            - **dropout_rate**: float between 0 and 1. Fraction of the units to drop.
-            - **use_positional_encoding**: bool. Whether or not use positional_encoding
-            - **use_res**: bool. Whether or not use standard residual connections before output.
-            - **use_feed_forward**: bool. Whether or not use pointwise feed foward network.
-            - **use_layer_norm**: bool. Whether or not use Layer Normalization.
-            - **blinding**: bool. Whether or not use blinding.
-            - **seed**: A Python integer to use as random seed.
-            - **supports_masking**:bool. Whether or not support masking.
-
-      References
-            - [Vaswani, Ashish, et al. "Attention is all you need." Advances in Neural Information Processing Systems. 2017.](https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf)
-    """
 
     def __init__(self, att_embedding_size=1, head_num=8, dropout_rate=0.0, use_positional_encoding=True, use_res=True,
                  use_feed_forward=True, use_layer_norm=False, blinding=True, seed=1024, supports_masking=False,
@@ -194,9 +164,9 @@ class Muti_Attention(Layer):
         self.W_Value = self.add_weight(name='value', shape=[embedding_size, self.att_embedding_size * self.head_num],
                                        dtype=tf.float32,
                                        initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed + 2))
-        # if self.use_res:
-        #     self.W_Res = self.add_weight(name='res', shape=[embedding_size, self.att_embedding_size * self.head_num], dtype=tf.float32,
-        #                                  initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed))
+        if self.use_res:
+            self.W_Res = self.add_weight(name='res', shape=[embedding_size, self.att_embedding_size * self.head_num], dtype=tf.float32,
+                                         initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed))
         if self.use_feed_forward:
             self.fw1 = self.add_weight('fw1', shape=[self.num_units, 4 * self.num_units], dtype=tf.float32,
                                        initializer=tf.keras.initializers.glorot_uniform(seed=self.seed))
@@ -211,28 +181,15 @@ class Muti_Attention(Layer):
 
     def call(self, inputs, mask=None, training=None, **kwargs):
 
-        if self.supports_masking:
-            queries, keys = inputs
-            print(queries.shape)
-            query_masks, key_masks = mask
-            #     query_masks,key_masks = mask,mask
-            query_masks = tf.cast(query_masks, tf.float32)
-            key_masks = tf.cast(key_masks, tf.float32)
-        else:
-            #queries, keys, query_masks, key_masks = inputs
-
-            queries, keys = inputs
-
-        if self.use_positional_encoding:
-            queries = positional_encoding(queries)
-            keys = positional_encoding(queries)
-
+        queries, keys = inputs
+        # if self.use_positional_encoding:
+        #     queries = positional_encoding(queries)
+        #     keys = positional_encoding(queries)
         #     [B,10,8]X[8,8] = [B,10,8]
         querys = tf.tensordot(queries, self.W_Query,
                               axes=(-1, 0))  # None T_q D*head_num
         keys = tf.tensordot(keys, self.W_key, axes=(-1, 0))
         values = tf.tensordot(keys, self.W_Value, axes=(-1, 0))
-
         # head_num*None T_q D
         # 将querys 分成8个[B,10,1] 之后在第一个维度拼接 [8*B,10,1]
         querys = tf.concat(tf.split(querys, self.head_num, axis=2), axis=0)
@@ -242,10 +199,8 @@ class Muti_Attention(Layer):
         # head_num*None T_q T_k
         # 计算每一个行为之间的att score [8*B,10,1]*[8*B,1,10] = [8*B,10,10]
         outputs = tf.matmul(querys, keys, transpose_b=True)
-
              # 归一化
         outputs = outputs / (keys.get_shape().as_list()[-1] ** 0.5)
-
              # 对每一个[10,10]的矩阵进行对角化直为一个最小值，表示自己和自己的att score = 0
         if self.blinding:
             outputs = tf.matrix_set_diag(outputs, tf.ones_like(outputs)[:, :, 0] * (-2 ** 32 + 1))
@@ -266,11 +221,10 @@ class Muti_Attention(Layer):
         result = tf.concat(tf.split(result, self.head_num, axis=0), axis=2)
 
         if self.use_res:
-            # tf.tensordot(queries, self.W_Res, axes=(-1, 0))
+            queries = tf.tensordot(queries, self.W_Res, axes=(-1, 0))
             result += queries
         if self.use_layer_norm:
             result = self.ln(result)
-
         if self.use_feed_forward:
             fw1 = tf.nn.relu(tf.tensordot(result, self.fw1, axes=[-1, 0]))
             fw1 = self.dropout(fw1, training=training)
@@ -282,6 +236,22 @@ class Muti_Attention(Layer):
         # 结果在第一维，也就是求一个sess内10个行为的均值，作为这个sess的表示
         return tf.reduce_mean(result, axis=1, keep_dims=True)
 
+class Dense_layer(Layer):
+    def __init__(self, hidden_units, out_dim=1, activation='relu', dropout=0.0):
+        super(Dense_layer, self).__init__()
+        self.hidden_layers = [Dense(i, activation=activation) for i in hidden_units]
+        self.out_layer = Dense(out_dim, activation=None)
+        self.dropout = Dropout(dropout)
+
+    def call(self, inputs, **kwargs):
+        # inputs: [None, n*k]
+        print(self.hidden_layers)
+        x = inputs
+        for layer in self.hidden_layers:
+            x = layer(x)
+        x = self.dropout(x)
+        output = self.out_layer(x)
+        return output
 
 class Din_attention(Layer):
     def __init__(self,sess_max_count,stag):
@@ -290,7 +260,6 @@ class Din_attention(Layer):
         self.stag = stag
     def build(self, input_shape):
         pass
-
 
     def call(self, inputs,query=None,mask=None, **kwargs):
 
@@ -304,16 +273,18 @@ class Din_attention(Layer):
         # query是[B, H]，转换到 queries 维度为(B, T, H)，为了让pos_item和用户行为序列中每个元素计算权重
         # 此时query是 Tensor("concat:0", shape=(?, 36), dtype=float32)
         # tf.shape(keys)[1] 结果就是 T，query是[B, H]，经过tile，就是把第一维按照 T 展开，得到[B, T * H]
-        #queries = tf.tile(query, [1,5],name="3214")  # Batch * Time * Hidden size
-        queries = tf.keras.layers.concatenate([query for _ in range(int(inputs.shape[1]))],axis=1)
+        query = tf.squeeze(query,1)
+        queries = tf.tile(query, [1,5],name="3214")  # Batch * Time * Hidden size
+        #queries = tf.keras.layers.concatenate([query for _ in range(int(inputs.shape[1]))],axis=1)
 
         queries = tf.reshape(queries, [-1,int(inputs.shape[1]),8])
 
         # 2. 这部分目的就是为了在MLP之前多做一些捕获行为item和候选item之间关系的操作：加减乘除等。
         # 得到 Local Activation Unit 的输入。即 候选广告 queries 对应的 emb，用户历史行为序列 facts
         # 对应的 embed, 再加上它们之间的交叉特征, 进行 concat 后的结果
-        din_all = tf.keras.layers.concatenate([queries, inputs, queries - inputs,queries * inputs],
-                            axis=-1)  # Batch * Time * (4 * Hidden size)
+        # din_all = tf.keras.layers.concatenate([queries, inputs, queries - inputs,queries * inputs],
+        #                     axis=-1)  # Batch * Time * (4 * Hidden size)
+        din_all = tf.concat([queries, inputs, queries - inputs,queries * inputs],   axis=-1)
         d_layer_1_all = tf.layers.dense(din_all, 80, activation=tf.nn.sigmoid, name='f1_att'+self.stag)
         d_layer_2_all = tf.layers.dense(d_layer_1_all, 40, activation=tf.nn.sigmoid, name='f2_att'+self.stag )
         d_layer_3_all = tf.layers.dense(d_layer_2_all, 1, activation=None, name='f3_att'+self.stag)  # Batch * Time * 1
@@ -340,6 +311,10 @@ class Din_attention(Layer):
         output = tf.matmul(scores,inputs)
 
         return output,scores
+
+
+
+
 
 class Din_attention2(Layer):
     def __init__(self,sess_max_count,stag):
@@ -407,19 +382,3 @@ class Din_attention2(Layer):
 
         return output,scores
 
-class Dense_layer(Layer):
-    def __init__(self, hidden_units, out_dim=1, activation='relu', dropout=0.0):
-        super(Dense_layer, self).__init__()
-        self.hidden_layers = [Dense(i, activation=activation) for i in hidden_units]
-        self.out_layer = Dense(out_dim, activation=None)
-        self.dropout = Dropout(dropout)
-
-    def call(self, inputs, **kwargs):
-        # inputs: [None, n*k]
-        print(self.hidden_layers)
-        x = inputs
-        for layer in self.hidden_layers:
-            x = layer(x)
-        x = self.dropout(x)
-        output = self.out_layer(x)
-        return output

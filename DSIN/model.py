@@ -62,15 +62,15 @@ class DSIN(tf.keras.Model):
         query_emb_list = self.embedding_layer(sparse_input,flag=flag)
         #print(query_emb_list)
         # 这里用tf.concat 就报错？？？？？
-        query_emb = Concatenate(query_emb_list,axis=-1,name="7070707")
+        query_emb = tf.keras.layers.concatenate(query_emb_list,axis=-1,name="7070707")
         query_emb = tf.expand_dims(query_emb, 1)
         print("que",query_emb)
         # dnn输入的embedding
         flag = 1
         deep_input_emb_list = self.embedding_layer(sparse_input,flag=flag)
         print("deep",deep_input_emb_list)
-        # 这里用tf.concat 在反向传播求梯度的时候就报错？？？？？
-        deep_input_emb = Concatenate(deep_input_emb_list,axis=-1,name="7979797")
+        # 这里用tf.concat 就报错？？？？？
+        deep_input_emb = tf.keras.layers.concatenate(deep_input_emb_list,axis=-1,name="7979797")
         #deep_input_emb = tf.concat(deep_input_emb_list, axis=-1, name="7979797")
         deep_input_emb = Flatten()(deep_input_emb)
         #print(deep_input_emb)  #[B,60]
@@ -91,8 +91,7 @@ class DSIN(tf.keras.Model):
         tr_out = []
         for i in range(self.sess_max_count):
             tr_out.append(self.mul_att([tr_input[i], tr_input[i]]))
-         #
-        tr_out = tf.concat(tr_out,axis=1,name="fisstttt")
+        tr_out = tf.keras.layers.concatenate(tr_out,axis=1,name="fisstttt")
         print("trout",tr_out) #(B,5,8)
         #tr_out = tf.split(tr_out,8,axis=0)[0]
         # 进行attention 送入 target item的embedding以及 mask
@@ -124,7 +123,7 @@ class DSIN(tf.keras.Model):
 
         dnn_in_1 = tf.concat([att_out,lstm_attention_out,deep_input_emb,dense_input],axis=-1,name="ccc1111")
 
-        dnn_in = tf.reshape(dnn_in_1,[-1,77])
-        dnn_out = self.dense_layer(dnn_in)
+        #dnn_in = tf.reshape(dnn_in_1,[-1,77])
+        dnn_out = self.dense_layer(dnn_in_1)
 
         return dnn_out

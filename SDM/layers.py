@@ -230,7 +230,9 @@ class SoftmaxWeightedSum(tf.keras.layers.Layer):
                 lower_tri = tf.linalg.LinearOperatorLowerTriangular(lower_tri).to_dense()
             masks = tf.tile(tf.expand_dims(lower_tri, 0), [tf.shape(align)[0], 1, 1])
             align = tf.where(tf.equal(masks, 0), paddings, align)
+
         align = tf.nn.softmax(align)
+
         align = self.dropout(align, training=training)
         output = tf.matmul(align, value)
         return output
@@ -403,10 +405,13 @@ class SelfMultiHeadAttention(tf.keras.layers.Layer):
         querys = tf.concat(tf.split(querys, self.head_num, axis=2), axis=0)  # (h*N, T_q, C/h)
         keys = tf.concat(tf.split(keys, self.head_num, axis=2), axis=0)  # (h*N, T_k, C/h)
         values = tf.concat(tf.split(values, self.head_num, axis=2), axis=0)  # (h*N, T_k, C/h)
-
+        print("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwww")
+        # print(querys)
+        # print(input_info)
+        # print(key_masks)
         # (h*N, T_q, T_k)
         align = self.attention([querys, keys])
-
+        #print(align) # shape=(?, 4, 4)
         key_masks = tf.tile(key_masks, [self.head_num, 1])  # (h*N, T_k)
         key_masks = tf.tile(tf.expand_dims(key_masks, 1), [1, tf.shape(input_info)[1], 1])  # (h*N, T_q, T_k)
 
@@ -437,6 +442,8 @@ class SelfMultiHeadAttention(tf.keras.layers.Layer):
         return mask
 
 class LayerNormalization(tf.keras.layers.Layer):
+
+    # LN 在最后一维度做LN
     def __init__(self, axis=-1, eps=1e-9, center=True,
                  scale=True, **kwargs):
         self.axis = axis

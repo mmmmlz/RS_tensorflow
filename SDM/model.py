@@ -110,6 +110,8 @@ def SDM(user_feature_columns,item_feature_columns,history_feature_list,num_sampl
         item_embedding_matrix = embedding_matrix_dict[name]
 
         item_index = EmbeddingIndex(list(range(item_vocabulary_size)))(item_features[name])
+        print("213123123123123")
+        print(item_index)
         item_concat.append(item_features[name])
         item_embedding_weight = NoMask()(item_embedding_matrix(item_index))
         item_embedding_list.append(item_embedding_weight)
